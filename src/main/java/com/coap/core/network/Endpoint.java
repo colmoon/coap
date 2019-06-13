@@ -1,4 +1,4 @@
-package com.colmoon.coap.core.network;
+package com.coap.core.network;
 
 /**
  * @ClassName Endpoint

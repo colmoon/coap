@@ -1,7 +1,7 @@
-package com.colmoon.coap.core.server;
+package com.coap.core.server;
 
-import com.colmoon.coap.core.network.Endpoint;
-import com.colmoon.coap.core.server.resources.Resource;
+import com.coap.core.network.Endpoint;
+import com.coap.core.server.resources.Resource;
 
 import java.net.InetSocketAddress;
 import java.util.List;

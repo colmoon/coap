@@ -1,4 +1,4 @@
-package com.colmoon.coap;
+package com.coap;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
