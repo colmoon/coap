@@ -10,9 +10,14 @@ package com.coap.core.observe;
 
 import com.coap.core.coap.Response;
 import com.coap.core.network.Exchange;
+import com.coap.core.network.config.NetworkConfig;
 import com.coap.core.server.resources.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
+import java.util.Iterator;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 
 /**
@@ -49,7 +54,168 @@ public class ObserveRelation {
     /** Indicates if the relation is canceled */
     private volatile boolean canceled;
 
+    private long interestCheckTimer = System.currentTimeMillis();
+    private int interestCheckCounter = 1;
 
+    /** The notifications that have been sent, so they can be removed from the Matcher */
+    private ConcurrentLinkedQueue<Response> notifications = new ConcurrentLinkedQueue<>();
 
+    /**
+     * Constructs a new observe relation.
+     *
+     * @param endpoint the observing endpoint
+     * @param resource the observed resource
+     * @param exchange the exchange that tries to establish the observe relation
+     */
+    public ObserveRelation(ObservingEndpoint endpoint, Resource resource, Exchange exchange){
+        if (endpoint == null){
+            throw new NullPointerException();
+        }
+        if (resource == null){
+            throw new NullPointerException();
+        }
+        if (exchange == null){
+            throw new NullPointerException();
+        }
+        this.endpoint = endpoint;
+        this.resource = resource;
+        this.exchange = exchange;
+        NetworkConfig config = exchange.getEndpoint().getConfig();
+        checkIntervalTime = config.getLong(NetworkConfig.Keys.NOTIFICATION_CHECK_INTERVAL_TIME);
+        checkIntervalCount = config.getInt(NetworkConfig.Keys.NOTIFICATION_CHECK_INTERVAL_COUNT);
+
+        this.key = getSource().toString() + "#" + exchange.getRequest().getTokenString();
+    }
+
+    /**
+     * Returns true if this relation has been established.
+     * @return true if this relation has been established
+     */
+    public boolean isEstablished() {return established;}
+
+    /**
+     * Sets the established field.
+     * @throws IllegalStateException if the relation was already canceled.
+     */
+    public void setEstablished() {
+        if (canceled) {
+            throw new IllegalStateException(
+                    String.format("Could not establish observe relation %s with %s, already canceled (%s)!", getKey(),
+                            resource.getURI(), exchange));
+        }
+        this.established = true;
+    }
+
+    /**
+     * Check, if this relation is canceled.
+     * @return {@code true}, if relation was canceled, {@code false}, otherwise.
+     */
+    public boolean isCanceled() {
+        return canceled;
+    }
+
+    /**
+     * Cancel this observe relation. This methods invokes the cancel methods of
+     * the resource and the endpoint.
+     * @throws IllegalStateException, if relation wasn't established.
+     */
+    public void cancel() {
+        if (!canceled) {
+            if (!established) {
+                throw new IllegalStateException(String.format("Observe relation %s with %s not established (%s)!", getKey(),
+                        resource.getURI(), exchange));
+            }
+            LOGGER.debug("Canceling observe relation {} with {} ({})", getKey(), resource.getURI(), exchange);
+            // stop ongoing retransmissions
+            canceled = true;
+            established = false;
+            Response reponse = exchange.getResponse();
+            if (reponse != null) {
+                reponse.cancel();
+            }
+            resource.removeObserveRelation(this);
+            endpoint.removeObserveRelation(this);
+            exchange.executeComplete();
+        }
+    }
+
+    /**
+     * Cancel all observer relations that this server has established with this'
+     * realtion's endpoint.
+     */
+    public void cancelAll() {
+        endpoint.cancelAll();
+    }
+
+    /**
+     * Notifies the observing endpoint that the resource has been changed. This
+     * method makes the resource process the same request again.
+     */
+    public void notifyObservers() {
+        resource.handleRequest(exchange);
+    }
+
+    /**
+     * Gets the resource.
+     *
+     * @return the resource
+     */
+    public Resource getResource() {
+        return resource;
+    }
+
+    /**
+     * Gets the exchange.
+     *
+     * @return the exchange
+     */
+    public Exchange getExchange() {
+        return exchange;
+    }
+
+    /**
+     * Gets the source address of the observing endpoint.
+     *
+     * @return the source address
+     */
+    public InetSocketAddress getSource() {
+        return endpoint.getAddress();
+    }
+
+    public boolean check() {
+        boolean check = false;
+        check |= this.interestCheckTimer + checkIntervalTime < System.currentTimeMillis();
+        check |= (++interestCheckCounter >= checkIntervalCount);
+        if (check) {
+            this.interestCheckTimer = System.currentTimeMillis();
+            this.interestCheckCounter = 0;
+        }
+        return check;
+    }
+
+    public Response getCurrentControlNotification() {
+        return recentControlNotification;
+    }
+
+    public void setNextControlNotification(Response nextControlNotification) {
+        if (this.nextControlNotification != null && nextControlNotification != null) {
+            // complete deprecated response
+            this.nextControlNotification.onComplete();
+        }
+        this.nextControlNotification = nextControlNotification;
+    }
+
+    public void addNotification(Response notification) {
+        notifications.add(notification);
+        LOGGER.trace("{} add notification MID {} (size {}).", resource.getURI(), notification.getMID(), notifications.size());
+    }
+
+    public Iterator<Response> getNotificationIterator() {
+        return notifications.iterator();
+    }
+
+    public String getKey() {
+        return this.key;
+    }
 
 }
