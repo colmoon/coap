@@ -69,7 +69,7 @@ public interface ServerInterface {
      * @param endpoint the endpoint
      * @throws NullPointerException if the endpoint is <code>null</code>
      */
-    void addEndpoint(Endpoint endPoint);
+    void addEndpoint(Endpoint endpoint);
 
     /**
      * Gets the endpoints this server is bound to.
