@@ -8,17 +8,21 @@ package com.coap.core.coap;
  * @Version 1.0
  **/
 
+import com.coap.core.Utils;
 import com.coap.elements.EndpointContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetAddress;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import static com.coap.core.coap.CoAP.*;
 
@@ -513,11 +517,506 @@ public abstract class Message {
         return this;
     }
 
+    /**
+     * Gets the destination address.
+     *
+     * @return the destination
+     * @deprecated use {@link #getDestinationContext()}
+     */
+    public InetAddress getDestination() {
+        EndpointContext destinationContext = this.destinationContext;
+        if (destinationContext == null) {
+            return null;
+        }
+        return destinationContext.getPeerAddress().getAddress();
+    }
 
+    /**
+     * Gets the destination port.
+     *
+     * @return the destination port
+     * @deprecated use {@link #getDestinationContext()}
+     */
+    public int getDestinationPort() {
+        EndpointContext destinationContext = this.destinationContext;
+        if (destinationContext == null) {
+            return -1;
+        }
+        return destinationContext.getPeerAddress().getPort();
+    }
 
+    /**
+     * Gets the source address.
+     *
+     * @return the source
+     * @deprecated use {@link #getSourceContext()}
+     */
+    public InetAddress getSource() {
+        EndpointContext sourceContext = this.sourceContext;
+        if (sourceContext == null) {
+            return null;
+        }
+        return sourceContext.getPeerAddress().getAddress();
+    }
 
+    /**
+     * Gets the source port.
+     *
+     * @return the source port
+     * @deprecated use {@link #getSourceContext()}
+     */
+    public int getSourcePort() {
+        EndpointContext sourceContext = this.sourceContext;
+        if (sourceContext == null) {
+            return -1;
+        }
+        return sourceContext.getPeerAddress().getPort();
+    }
 
+    /**
+     * Get destination endpoint context.
+     *
+     * May be {@code null} for {@link Request} during it's construction.
+     *
+     * @return the destination endpoint context.
+     */
+    public EndpointContext getDestinationContext() {
+        return destinationContext;
+    }
 
+    /**
+     * Get source endpoint context.
+     *
+     * @return the source endpoint context.
+     */
+    public EndpointContext getSourceContext() {
+        return sourceContext;
+    }
+
+    /**
+     * Set destination endpoint context.
+     *
+     * Multicast addresses are not supported.
+     *
+     * Provides a fluent API to chain setters.
+     *
+     * @param peerContext destination endpoint context
+     * @return this Message
+     * @throws IllegalArgumentException if destination address is multicast
+     *             address
+     * @see #setRequestDestinationContext(EndpointContext)
+     */
+    public Message setDestinationContext(EndpointContext peerContext) {
+        // requests calls setRequestDestinationContext instead
+        if (peerContext != null && peerContext.getPeerAddress().getAddress().isMulticastAddress()) {
+            throw new IllegalArgumentException("Multicast destination is only supported for request!");
+        }
+        this.destinationContext = peerContext;
+        return this;
+    }
+
+    /**
+     * Set destination endpoint context for requests.
+     * Multicast addresses are supported.
+     *
+     * @param peerContext destination endpoint context
+     * @see #setDestinationContext(EndpointContext)
+     */
+    protected void setRequestDestinationContext(EndpointContext peerContext) {
+        this.destinationContext = peerContext;
+    }
+
+    /**
+     * Set source endpoint context.
+     *
+     * Provides a fluent API to chain setters.
+     *
+     * @param peerContext source endpoint context
+     * @return this Message
+     */
+    public Message setSourceContext(EndpointContext peerContext) {
+        this.sourceContext = peerContext;
+        return this;
+    }
+
+    /**
+     * Checks if is this message has been acknowledged.
+     *
+     * @return true, if is acknowledged
+     */
+    public boolean isAcknowledged() {
+        return acknowledged;
+    }
+
+    /**
+     * Marks this message as acknowledged.
+     *
+     * Not part of the fluent API.
+     *
+     * @param acknowledged if acknowledged
+     */
+    public void setAcknowledged(boolean acknowledged) {
+        this.acknowledged = acknowledged;
+        if (acknowledged) {
+            for (MessageObserver handler : getMessageObservers()) {
+                handler.onAcknowledgement();
+            }
+        }
+    }
+
+    /**
+     * Checks if this message has been rejected.
+     *
+     * @return true, if is rejected
+     */
+    public boolean isRejected() {
+        return rejected;
+    }
+
+    /**
+     * Marks this message as rejected.
+     *
+     * Not part of the fluent API.
+     *
+     * @param rejected if rejected
+     */
+    public void setRejected(boolean rejected) {
+        this.rejected = rejected;
+        if (rejected) {
+            for (MessageObserver handler : getMessageObservers()) {
+                handler.onReject();
+            }
+        }
+    }
+
+    /**
+     * Checks if this message has timed out. Confirmable messages in particular
+     * might timeout.
+     *
+     * @return true, if timed out
+     */
+    public boolean isTimedOut() {
+        return timedOut;
+    }
+
+    /**
+     * Marks this message as timed out. Confirmable messages in particular might
+     * time out.
+     *
+     * @param timedOut {@code true} if timed out
+     */
+    public void setTimedOut(final boolean timedOut) {
+        this.timedOut = timedOut;
+        if (timedOut) {
+            for (MessageObserver observer : getMessageObservers()) {
+                observer.onTimeout();
+            }
+        }
+    }
+
+    /**
+     * Checks if this message has been canceled.
+     *
+     * @return true, if is canceled
+     */
+    public boolean isCanceled() {
+        return canceled;
+    }
+
+    /**
+     * Marks this message as canceled.
+     *
+     * Not part of the fluent API.
+     *
+     * @param canceled if canceled
+     */
+    public void setCanceled(boolean canceled) {
+        this.canceled = canceled;
+        if (canceled) {
+            for (MessageObserver handler : getMessageObservers()) {
+                handler.onCancel();
+            }
+        }
+    }
+
+    /**
+     * Indicate, that this message is ready to be send.
+     *
+     * Not part of the fluent API.
+     */
+    public void setReadyToSend() {
+        for (MessageObserver handler : getMessageObservers()) {
+            handler.onReadyToSend();
+        }
+    }
+
+    /**
+     * Indicate, that this message triggered the connector to establish a
+     * connection. Not part of the fluent API.
+     */
+    public void onConnecting() {
+        for (MessageObserver handler : getMessageObservers()) {
+            handler.onConnecting();
+        }
+    }
+
+    /**
+     * Indicate, that this message triggered the connector to establish a
+     * connection and a dtls handshake flight was retransmitted.
+     *
+     * @param flight {@code 1 ... 6}, number of retransmitted flight.
+     */
+    public void onDtlsRetransmission(int flight) {
+        for (MessageObserver handler : getMessageObservers()) {
+            handler.onDtlsRetransmission(flight);
+        }
+    }
+
+    /**
+     * Checks if this message has been sent.
+     *
+     * @return true, if is sent
+     */
+    public boolean isSent() {
+        return sent;
+    }
+
+    /**
+     * Marks this message as sent.
+     *
+     * Not part of the fluent API.
+     *
+     * @param sent if sent
+     */
+    public void setSent(boolean sent) {
+        this.sent = sent;
+        if (sent) {
+            for (MessageObserver handler : getMessageObservers()) {
+                handler.onSent();
+            }
+        }
+    }
+
+    /**
+     * Checks if this message has been sent.
+     *
+     * @return true, if is sent
+     */
+    public Throwable getSendError() {
+        return sendError;
+    }
+
+    /**
+     * Marks this message with send error.
+     *
+     * Not part of the fluent API.
+     *
+     * @param sendError if error occurred while sending
+     */
+    public void setSendError(Throwable sendError) {
+        this.sendError = sendError;
+        if (sendError != null) {
+            for (MessageObserver handler : getMessageObservers()) {
+                handler.onSendError(sendError);
+            }
+        }
+    }
+
+    /**
+     * Report resulting endpoint context.
+     *
+     * The {@link #destinationContext} may not contain all information, but the
+     * connector will fill these information and report it. This method doesn't
+     * change the {@link #destinationContext} but calls
+     * {@link MessageObserver#onContextEstablished(EndpointContext)}.
+     *
+     * @param endpointContext resulting endpoint context.
+     */
+    public void onContextEstablished(EndpointContext endpointContext) {
+        if (endpointContext != null) {
+            for (MessageObserver handler : getMessageObservers()) {
+                handler.onContextEstablished(endpointContext);
+            }
+        }
+    }
+
+    public void onComplete() {
+        LOGGER.trace("Message completed {}", this);
+        for (MessageObserver handler : getMessageObservers()) {
+            handler.onComplete();
+        }
+    }
+
+    /**
+     * Checks if this message is a duplicate.
+     *
+     * @return true, if is a duplicate
+     */
+    public boolean isDuplicate() {
+        return duplicate;
+    }
+
+    /**
+     * Marks this message as a duplicate.
+     *
+     * Not part of the fluent API.
+     *
+     * @param duplicate if a duplicate
+     */
+    public void setDuplicate(boolean duplicate) {
+        this.duplicate = duplicate;
+    }
+
+    /**
+     * Gets the serialized message as byte array or null if not serialized yet.
+     *
+     * @return the bytes of the serialized message or null
+     */
+    public byte[] getBytes() {
+        return bytes;
+    }
+
+    /**
+     * Sets the bytes of the serialized message.
+     *
+     * Not part of the fluent API.
+     *
+     * @param bytes the serialized bytes
+     */
+    public void setBytes(byte[] bytes) {
+        this.bytes = bytes;
+    }
+
+    /**
+     * Checks whether a given block offset falls into this message's payload.
+     *
+     * @param block2 The offset of the block.
+     * @return {@code true} if this message has a payload and its size is
+     *         greater then the offset.
+     */
+    public boolean hasBlock(final BlockOption block2) {
+
+        return 0 < getPayloadSize() && block2.getOffset() < getPayloadSize();
+    }
+
+    /**
+     * Gets the timestamp.
+     *
+     * @return the timestamp
+     */
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    /**
+     * Sets the timestamp.
+     *
+     * Not part of the fluent API.
+     *
+     * @param timestamp the new timestamp
+     */
+    public void setTimestamp(long timestamp) {
+        this.timestamp = timestamp;
+    }
+
+    /**
+     * Cancels this message.
+     *
+     * This method calls {@link #setCanceled(boolean)} with {@code true}.
+     * Subclasses should override {@link #setCanceled(boolean)} to react to
+     * cancellation.
+     */
+    public void cancel() {
+        setCanceled(true);
+    }
+
+    /**
+     * Notifies all registered {@code MessageObserver}s that this message is
+     * about to be re-transmitted.
+     */
+    public void retransmitting() {
+        for (MessageObserver observer : getMessageObservers()) {
+            try {
+                // guard against faulty MessageObservers
+                observer.onRetransmission();
+            } catch (Exception e) {
+                LOGGER.error("Faulty MessageObserver for retransmitting events", e);
+            }
+        }
+    }
+
+    /**
+     * Returns the observers registered for this message.
+     *
+     * @return an immutable(不变的) list of the registered observers.
+     */
+    public List<MessageObserver> getMessageObservers() {
+        if (null == unmodifiableMessageObserversFacade) {
+            return Collections.emptyList();
+        } else {
+            return unmodifiableMessageObserversFacade;
+        }
+    }
+
+    /**
+     * Adds the specified message observer.
+     *
+     * @param observer the observer
+     * @throws NullPointerException if the observer is {@code null}.
+     */
+    public void addMessageObserver(final MessageObserver observer) {
+        if (observer == null) {
+            throw new NullPointerException();
+        }
+        ensureMessageObserverList().add(observer);
+    }
+
+    /**
+     * Appends a list of observers to this message's existing observers.
+     *
+     * @param observers the observers to add
+     * @throws NullPointerException if the list is {@code null}.
+     */
+    public void addMessageObservers(final List<MessageObserver> observers) {
+        if (observers == null) {
+            throw new NullPointerException();
+        }
+        if (!observers.isEmpty()) {
+            ensureMessageObserverList().addAll(observers);
+        }
+    }
+
+    /**
+     * Removes the specified message observer.
+     *
+     * @param observer the observer
+     * @throws NullPointerException if the observer is {@code null}.
+     */
+    public void removeMessageObserver(final MessageObserver observer) {
+        if (observer == null) {
+            throw new NullPointerException();
+        }
+        List<MessageObserver> list = messageObservers.get();
+        if (list != null) {
+            list.remove(observer);
+        }
+    }
+
+    /**
+     * Get list of {@link MessageObserver}. If not already defined, create a new
+     * one. This method is thread-safe and creates exactly one list.
+     */
+    private List<MessageObserver> ensureMessageObserverList() {
+        List<MessageObserver> list = messageObservers.get();
+        if (null == list) {
+            boolean created = messageObservers.compareAndSet(null, new CopyOnWriteArrayList<MessageObserver>());
+            list = messageObservers.get();
+            if (created) {
+                unmodifiableMessageObserversFacade = Collections.unmodifiableList(list);
+            }
+        }
+        return list;
+    }
 
 
 }

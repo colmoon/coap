@@ -1,0 +1,162 @@
+package com.coap.core.network;
+
+import com.coap.core.coap.Message;
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.elements.util.ClockUtil;
+import com.coap.elements.util.LeastRecentlyUsedCache;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
+import java.util.Random;
+
+
+/**
+ * A provider for message IDs thats keeps track of all message IDs in memory.
+ * <p>
+ * This provider maintains an instance of {@link MessageIdTracker} for each
+ * endpoint identified by IP address and port.
+ */
+public class InMemoryMessageIdProvider implements MessageIdProvider {
+
+	private static final Logger LOG = LoggerFactory.getLogger(InMemoryMessageIdProvider.class.getName());
+
+	public enum TrackerMode {
+		NULL, GROUPED, MAPBASED
+	}
+
+	private final LeastRecentlyUsedCache<InetSocketAddress, MessageIdTracker> trackers;
+	private final MessageIdTracker multicastTracker;
+	private final TrackerMode mode;
+	private final Random random;
+	private final NetworkConfig config;
+	private final int multicastBaseMid;
+
+	/**
+	 * Creates an new provider for configuration values.
+	 * 
+	 * The following configuration values are used direct or indirect:
+	 * <ul>
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#MID_TRACKER}
+	 * - determine the tracker mode. Supported values are "NULL" (for
+	 * {@link NullMessageIdTracker}), "GROUPED" (for
+	 * {@link GroupedMessageIdTracker}), and "MAPBASED" (for
+	 * {@link MapBasedMessageIdTracker}).</li>
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#MID_TRACKER_GROUPS}
+	 * - determine the group size for the message IDs, if the grouped tracker is
+	 * used. Each group is marked as <em>in use</em>, if a MID within the group
+	 * is used.</li>
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#EXCHANGE_LIFETIME}
+	 * - each (group of a) message ID returned by <em>getNextMessageId</em> is
+	 * marked as <em>in use</em> for this amount of time (ms).</li>
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#USE_RANDOM_MID_START}
+	 * - if this value is {@code true} then the message IDs returned by
+	 * <em>getNextMessageId</em> will start at a random index. Otherwise the
+	 * first message ID returned will be {@code 0}.</li>
+	 * </ul>
+	 * 
+	 * @param config the configuration to use.
+	 * @throws NullPointerException if the config is {@code null}.
+	 * @throws IllegalArgumentException if the config contains no value tracker
+	 *             mode.
+	 */
+	public InMemoryMessageIdProvider(final NetworkConfig config) {
+		if (config == null) {
+			throw new NullPointerException("Config must not be null");
+		}
+		String textualMode = null;
+		TrackerMode mode = TrackerMode.GROUPED;
+		try {
+			textualMode = config.getString(NetworkConfig.Keys.MID_TRACKER);
+			mode = TrackerMode.valueOf(textualMode);
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgumentException("Tracker mode '" + textualMode + "' not supported!");
+		} catch (NullPointerException e) {
+			throw new IllegalArgumentException("Tracker mode not provided/configured!");
+		}
+		this.mode = mode;
+		this.config = config;
+		if (config.getBoolean(NetworkConfig.Keys.USE_RANDOM_MID_START)) {
+			random = new Random(ClockUtil.nanoRealtime());
+		} else {
+			random = null;
+		}
+		// 10 minutes
+		trackers = new LeastRecentlyUsedCache<>(config.getInt(NetworkConfig.Keys.MAX_ACTIVE_PEERS, 150000),
+				config.getLong(NetworkConfig.Keys.MAX_PEER_INACTIVITY_PERIOD, 10 * 60));
+		trackers.setEvictingOnReadAccess(false);
+		int multicastBaseMid = config.getInt(NetworkConfig.Keys.MULTICAST_BASE_MID);
+		if (0 < multicastBaseMid) {
+			this.multicastBaseMid = multicastBaseMid;
+			int max = MessageIdTracker.TOTAL_NO_OF_MIDS;
+			int mid = null == random ? multicastBaseMid : random.nextInt(max - multicastBaseMid) + multicastBaseMid;
+			switch (mode) {
+			case NULL:
+				multicastTracker = new NullMessageIdTracker(mid, multicastBaseMid, max);
+				break;
+			case MAPBASED:
+				multicastTracker = new MapBasedMessageIdTracker(mid, multicastBaseMid, max, config);
+				break;
+			case GROUPED:
+			default:
+				multicastTracker = new GroupedMessageIdTracker(mid, multicastBaseMid, max, config);
+				break;
+			}
+		} else {
+			this.multicastBaseMid = MessageIdTracker.TOTAL_NO_OF_MIDS;
+			multicastTracker = null;
+		}
+	}
+
+	@Override
+	public int getNextMessageId(final InetSocketAddress destination) {
+		MessageIdTracker tracker = getTracker(destination);
+		if (tracker == null) {
+			// we have reached the maximum number of active peers
+			// TODO: throw an exception?
+			return Message.NONE;
+		} else {
+			return tracker.getNextMessageId();
+		}
+	}
+
+	private synchronized MessageIdTracker getTracker(final InetSocketAddress destination) {
+		// destination mc
+		// => use special range 65001-65535
+		// destination sp
+		// => use special range 0 - 65000
+
+		if (destination.getAddress().isMulticastAddress()) {
+			if (multicastTracker == null) {
+				LOG.warn(
+						"Destination address {} is a multicast address, please configure NetworkConfig to support multicast messaging",
+						destination);
+			}
+			return multicastTracker;
+		}
+
+		MessageIdTracker tracker = trackers.get(destination);
+		if (tracker == null) {
+			// create new tracker for destination lazily
+			int mid = null == random ? 0 : random.nextInt(multicastBaseMid);
+			switch (mode) {
+			case NULL:
+				tracker = new NullMessageIdTracker(mid, 0, multicastBaseMid);
+				break;
+			case MAPBASED:
+				tracker = new MapBasedMessageIdTracker(mid, 0, multicastBaseMid, config);
+				break;
+			case GROUPED:
+			default:
+				tracker = new GroupedMessageIdTracker(mid, 0, multicastBaseMid, config);
+				break;
+			}
+			if (trackers.put(destination, tracker)) {
+				return tracker;
+			} else {
+				return null;
+			}
+		}
+		return tracker;
+	}
+}

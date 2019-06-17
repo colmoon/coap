@@ -8,18 +8,28 @@ package com.coap.core.network;
  * @Version 1.0
  **/
 
-import com.coap.core.coap.Request;
-import com.coap.core.coap.Response;
+import com.coap.core.Utils;
+import com.coap.core.coap.*;
 import com.coap.core.observe.ObserveRelation;
+import com.coap.elements.EndpointContext;
+import com.coap.elements.util.ClockUtil;
+import com.coap.elements.util.SerialExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetSocketAddress;
+import java.util.Arrays;
 import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static com.coap.core.coap.CoAP.*;
 
 /**
  * An exchange represents the complete state of an exchange of one request and
@@ -73,7 +83,6 @@ public class Exchange {
     static final boolean DEBUG = LOGGER.isTraceEnabled();
 
     private static final int MAX_OBSERVE_NO = (1 << 24) - 1;
-
     /**
      * ID generator for logging messages.
      */
@@ -103,7 +112,6 @@ public class Exchange {
      * ID for logging.
      */
     private final int id;
-
     /**
      * Executor for exchange jobs.
      *
@@ -111,7 +119,6 @@ public class Exchange {
      * Otherwise many change in the tests would be required.
      */
     private final SerialExecutor executor;
-
     /**
      * Caller of {@link #setComplete()}. Intended for debug logging.
      */
@@ -180,14 +187,17 @@ public class Exchange {
     // true if the exchange has failed due to a timeout
     private volatile boolean timedOut;
 
-    // the timeout of the current request or response set by reliability(可靠性) layer
+    // the timeout of the current request or response set by reliability layer
     private volatile int currentTimeout;
+
+    // the amount of attempted transmissions that have not succeeded yet
+    private volatile int failedTransmissionCount = 0;
 
     // handle to cancel retransmission
     private ScheduledFuture<?> retransmissionHandle;
 
     // If the request was sent with a block1 option the response has to send its
-    // first block piggy-backed(在...基础上) with the Block1 option of the last request block
+    // first block piggy-backed with the Block1 option of the last request block
     private volatile BlockOption block1ToAck;
 
     private volatile Integer notificationNumber;
@@ -197,7 +207,7 @@ public class Exchange {
 
     private final AtomicReference<EndpointContext> endpointContext = new AtomicReference<EndpointContext>();
 
-    //If object security option is used, the Cryptographic context identifier(标识符) is stored here
+    //If object security option is used, the Cryptographic context identifier is stored here
     // for request/response mapping of contexts
     private byte[] cryptoContextId;
 
@@ -310,6 +320,775 @@ public class Exchange {
         endpoint.sendResponse(this, response);
     }
 
-    //TODO
+    public Origin getOrigin() {
+        return origin;
+    }
 
+    public boolean isOfLocalOrigin() {
+        return origin == Origin.LOCAL;
+    }
+
+    /**
+     * Indicate to keep the original request in the exchange store. Intended to
+     * be used for observe request with blockwise response to be able to react
+     * on newer notifies during an ongoing transfer.
+     *
+     * @return {@code true} to keep it, {@code false}, otherwise
+     */
+    public boolean keepsRequestInStore() {
+        return keepRequestInStore;
+    }
+
+    /**
+     * Indicate a notification exchange.
+     *
+     * @return {@code true} if notification is exchanged, {@code false},
+     *         otherwise
+     */
+    public boolean isNotification() {
+        return notification;
+    }
+
+    /**
+     * Returns the request that this exchange is associated with. If the request
+     * is sent blockwise, it might not have been assembled yet and this method
+     * returns null.
+     *
+     * @return the complete request
+     * @see #getCurrentRequest()
+     */
+    public Request getRequest() {
+        return request;
+    }
+
+    /**
+     * Sets the request that this exchange is associated with.
+     *
+     * @param newRequest the request
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     * @see #setCurrentRequest(Request)
+     */
+    public void setRequest(Request newRequest) {
+        assertOwner();
+        if (request != newRequest) {
+            if (keepRequestInStore) {
+                Token token = request.getToken();
+                if (token != null && !token.equals(newRequest.getToken())) {
+                    throw new IllegalArgumentException(
+                            this + " token missmatch (" + token + "!=" + newRequest.getToken() + ")!");
+                }
+            }
+            request = newRequest;
+        }
+    }
+
+    /**
+     * Returns the current request block. If a request is not being sent
+     * blockwise, the whole request counts as a single block and this method
+     * returns the same request as {@link #getRequest()}. Call getRequest() to
+     * access the assembled request.
+     *
+     * @return the current request block
+     */
+    public Request getCurrentRequest() {
+        return currentRequest;
+    }
+
+    /**
+     * Sets the current request block. If a request is not being sent blockwise,
+     * the origin request (equal to getRequest()) should be set.
+     *
+     * @param newCurrentRequest the current request block
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public void setCurrentRequest(Request newCurrentRequest) {
+        assertOwner();
+        if (currentRequest != newCurrentRequest) {
+            setRetransmissionHandle(null);
+            failedTransmissionCount = 0;
+            Token token = currentRequest.getToken();
+            if (token != null) {
+                if (token.equals(newCurrentRequest.getToken())) {
+                    token = null;
+                } else if (keepRequestInStore && token.equals(request.getToken())) {
+                    token = null;
+                }
+            }
+            KeyMID key = null;
+            if (currentRequest.hasMID() && currentRequest.getMID() != newCurrentRequest.getMID()) {
+                key = KeyMID.fromOutboundMessage(currentRequest);
+            }
+            if (token != null || key != null) {
+                LOGGER.debug("{} replace {} by {}", this, currentRequest, newCurrentRequest);
+                RemoveHandler obs = this.removeHandler;
+                if (obs != null) {
+                    obs.remove(this, token, key);
+                }
+            }
+            currentRequest = newCurrentRequest;
+        }
+    }
+
+    /**
+     * Returns the response to the request or null if no response has arrived
+     * yet. If there is an observe relation, the last received notification is
+     * the response.
+     *
+     * @return the response
+     */
+    public Response getResponse() {
+        return response;
+    }
+
+    /**
+     * Sets the response.
+     *
+     * @param response the response
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public void setResponse(Response response) {
+        assertOwner();
+        this.response = response;
+    }
+
+    /**
+     * Returns the current response block. If a response is not being sent
+     * blockwise, the whole response counts as a single block and this method
+     * returns the same request as {@link #getResponse()}. Call getResponse() to
+     * access the assembled response.
+     *
+     * @return the current response block
+     */
+    public Response getCurrentResponse() {
+        return currentResponse;
+    }
+
+    /**
+     * Sets the current response block. If a response is not being sent
+     * blockwise, the origin request (equal to getResponse()) should be set.
+     *
+     * @param newCurrentResponse the current response block
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public void setCurrentResponse(Response newCurrentResponse) {
+        assertOwner();
+        if (currentResponse != newCurrentResponse) {
+            if (currentResponse != null && currentResponse.getType() == Type.CON && currentResponse.hasMID()) {
+                RemoveHandler handler = this.removeHandler;
+                if (handler != null) {
+                    KeyMID key = KeyMID.fromOutboundMessage(currentResponse);
+                    handler.remove(this, null, key);
+                }
+            }
+            currentResponse = newCurrentResponse;
+        }
+    }
+
+    /**
+     * Returns the block option of the last block of a blockwise sent request.
+     * When the server sends the response, this block option has to be
+     * acknowledged.
+     *
+     * @return the block option of the last request block or null
+     */
+    public BlockOption getBlock1ToAck() {
+        return block1ToAck;
+    }
+
+    /**
+     * Sets the block option of the last block of a blockwise sent request. When
+     * the server sends the response, this block option has to be acknowledged.
+     *
+     * @param block1ToAck the block option of the last request block
+     */
+    public void setBlock1ToAck(BlockOption block1ToAck) {
+        this.block1ToAck = block1ToAck;
+    }
+
+    /**
+     * Returns the endpoint which has created and processed this exchange.
+     *
+     * @return the endpoint
+     */
+    public Endpoint getEndpoint() {
+        return endpoint;
+    }
+
+    /**
+     * Set endpoint of received message.
+     *
+     * @param endpoint endpoint, which received the message.
+     */
+    public void setEndpoint(Endpoint endpoint) {
+        this.endpoint = endpoint;
+    }
+
+    /**
+     * Indicated, that this exchange retransmission reached the timeout.
+     *
+     * @return {@code true}, transmission reached timeout, {@code false},
+     *         otherwise
+     */
+    public boolean isTimedOut() {
+        return timedOut;
+    }
+
+    /**
+     * Report transmission timeout for provided message to exchange.
+     * <p>
+     * This method also cleans up the Matcher state by calling the exchange
+     * observer {@link #setComplete()}. The timeout is forward to the provided
+     * message, and, for the {@link #currentRequest}, it is also forwarded to
+     * the {@link #request} to timeout the blockwise transfer itself. If the
+     * exchange was already completed, this method doesn't forward the timeout
+     * calls to the requests.
+     *
+     * @param message message, which transmission has reached the timeout.
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public void setTimedOut(Message message) {
+        assertOwner();
+        LOGGER.debug("{} timed out {}!", this, message);
+        if (!isComplete()) {
+            setComplete();
+            this.timedOut = true;
+            // forward timeout to message
+            message.setTimedOut(true);
+            if (request != null && request != message && currentRequest == message) {
+                // forward timeout to request
+                request.setTimedOut(true);
+            }
+        }
+    }
+
+    public int getFailedTransmissionCount() {
+        return failedTransmissionCount;
+    }
+
+    public void setFailedTransmissionCount(int failedTransmissionCount) {
+        this.failedTransmissionCount = failedTransmissionCount;
+    }
+
+    public int getCurrentTimeout() {
+        return currentTimeout;
+    }
+
+    public void setCurrentTimeout(int currentTimeout) {
+        this.currentTimeout = currentTimeout;
+    }
+
+    public ScheduledFuture<?> getRetransmissionHandle() {
+        return retransmissionHandle;
+    }
+
+    /**
+     * Set retransmission handle.
+     *
+     * @param newRetransmissionHandle
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public void setRetransmissionHandle(ScheduledFuture<?> newRetransmissionHandle) {
+        assertOwner();
+        if (!complete.get() || newRetransmissionHandle == null) {
+            // avoid race condition of multiple responses (e.g., notifications)
+            ScheduledFuture<?> previous = retransmissionHandle;
+            retransmissionHandle = newRetransmissionHandle;
+            if (previous != null) {
+                previous.cancel(false);
+            }
+        }
+    }
+
+    /**
+     * Prepare exchange for retransmit a response.
+     *
+     * @throws IllegalStateException if exchange is not a REMOTE exchange.
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public void retransmitResponse() {
+        assertOwner();
+        if (origin == Origin.REMOTE) {
+            caller = null;
+            complete.set(false);
+        } else {
+            throw new IllegalStateException(this + " retransmit on local exchange not allowed!");
+        }
+    }
+
+    /**
+     * Sets the number of the notification this exchange is associated with.
+     * <p>
+     * This number can be used to match responses of a blockwise transfer
+     * triggered by a notification.
+     *
+     * @param notificationNo The observe number of the notification.
+     * @throws IllegalArgumentException if the given number is &lt; 0 or &gt;
+     *             2^24 - 1.
+     */
+    public void setNotificationNumber(final int notificationNo) {
+        if (notificationNo < 0 || notificationNo > MAX_OBSERVE_NO) {
+            throw new IllegalArgumentException(this + " illegal observe number");
+        }
+        this.notificationNumber = notificationNo;
+    }
+
+    /**
+     * Gets the number of the notification this exchange is associated with.
+     * <p>
+     * This number can be used to match responses of a blockwise transfer
+     * triggered by a notification.
+     *
+     * @return The observe number of the notification or {@code null} if this
+     *         exchange is not associated with a notification.
+     */
+    public Integer getNotificationNumber() {
+        return notificationNumber;
+    }
+
+    /**
+     * Sets an remove handler to be invoked when this exchange completes.
+     *
+     * @param removeHandler The remove handler.
+     */
+    public void setRemoveHandler(RemoveHandler removeHandler) {
+        this.removeHandler = removeHandler;
+    }
+
+    /**
+     * Checks whether this exchange has an remove handler set.
+     *
+     * @return {@code true} if an remove handler is set.
+     * @see #setRemoveHandler(RemoveHandler)
+     */
+    public boolean hasRemoveHandler() {
+        return removeHandler != null;
+    }
+
+    /**
+     * Checks if this exchange has been marked as <em>completed</em>.
+     *
+     * @return {@code true} if this exchange has been completed.
+     */
+    public boolean isComplete() {
+        return complete.get();
+    }
+
+    /**
+     * Get caller
+     */
+    public Throwable getCaller() {
+        return caller;
+    }
+
+    /**
+     * Marks this exchange as being <em>completed</em>.
+     * <p>
+     * This means that both request and response have been sent/received.
+     * <p>
+     * This method invokes the {@linkplain RemoveHandler#remove(Exchange, Token, KeyMID)
+     * remove} method on the observer registered on this exchange (if any).
+     * <p>
+     * Call this method to trigger a clean-up in the Matcher through its
+     * ExchangeObserverImpl. Usually, it is called automatically when reaching
+     * the StackTopAdapter in the {@link CoapStack}, when timing out, when
+     * rejecting a response, or when sending the (last) response.
+     *
+     * @return {@code true}, if complete is set the first time, {@code false},
+     *         if it is repeated.
+     * @throws ExchangeCompleteException, if exchange was already completed.
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public boolean setComplete() {
+        assertOwner();
+        if (complete.compareAndSet(false, true)) {
+            if (DEBUG) {
+                caller = new Throwable(toString());
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("{}!", this, caller);
+                } else {
+                    LOGGER.debug("{}!", this);
+                }
+            } else {
+                LOGGER.debug("{}!", this);
+            }
+            setRetransmissionHandle(null);
+            RemoveHandler handler = this.removeHandler;
+            if (handler != null) {
+                if (origin == Origin.LOCAL) {
+                    Request currrentRequest = getCurrentRequest();
+                    Token token = currrentRequest.getToken();
+                    KeyMID key = currrentRequest.hasMID() ? KeyMID.fromOutboundMessage(currrentRequest) : null;
+                    if (token != null || key != null) {
+                        handler.remove(this, token, key);
+                    }
+                    Request request = getRequest();
+                    if (keepRequestInStore) {
+                        if (request != currrentRequest) {
+                            token = request.getToken();
+                            key = request.hasMID() ? KeyMID.fromOutboundMessage(request) : null;
+                            if (token != null || key != null) {
+                                handler.remove(this, token, key);
+                            }
+                        }
+                    }
+                    if (request == currrentRequest) {
+                        LOGGER.debug("local {} completed {}!", this, request);
+                    } else {
+                        LOGGER.debug("local {} completed {} -/- {}!", this, request, currrentRequest);
+                    }
+                } else {
+                    Response currentResponse = getCurrentResponse();
+                    if (currentResponse == null) {
+                        LOGGER.debug("remote {} rejected (without response)!", this);
+                    } else {
+                        if (currentResponse.getType() == Type.CON && currentResponse.hasMID()) {
+                            KeyMID key = KeyMID.fromOutboundMessage(currentResponse);
+                            handler.remove(this, null, key);
+                        }
+                        removeNotifications();
+                        Response response = getResponse();
+                        if (response == currentResponse || response == null) {
+                            LOGGER.debug("Remote {} completed {}!", this, currentResponse);
+                        } else {
+                            LOGGER.debug("Remote {} completed {} -/- {}!", this, response, currentResponse);
+                        }
+                    }
+                }
+            }
+            return true;
+        } else {
+            throw new ExchangeCompleteException(this + " already complete!", caller);
+        }
+    }
+
+    /**
+     * Execute complete.
+     *
+     * Schedules job for this exchange, if current thread is not already owner
+     * of it.
+     *
+     * @return {@code true}, if exchange was not already completed,
+     *         {@code false}, if exchange is already completed.
+     */
+    public boolean executeComplete() {
+        if (complete.get()) {
+            return false;
+        }
+        if (executor == null || checkOwner()) {
+            setComplete();
+        } else {
+            execute(new Runnable() {
+
+                @Override
+                public void run() {
+                    if (!complete.get()) {
+                        setComplete();
+                    }
+                }
+            });
+        }
+        return true;
+    }
+
+    /**
+     * Get the nano-timestamp of the creation of this exchange.
+     *
+     * @return nano-timestamp
+     * @see ClockUtil#nanoRealtime()
+     */
+    public long getNanoTimestamp() {
+        return nanoTimestamp;
+    }
+
+    /**
+     * Calculates the RTT (round trip time) of this exchange.
+     *
+     * MUST be called on receiving the response.
+     *
+     * @return RTT in milliseconds
+     */
+    public long calculateRTT() {
+        return TimeUnit.NANOSECONDS.toMillis(ClockUtil.nanoRealtime() - nanoTimestamp);
+    }
+
+    /**
+     * Returns the CoAP observe relation that this exchange has established.
+     *
+     * @return the observe relation or null
+     */
+    public ObserveRelation getRelation() {
+        return relation;
+    }
+
+    /**
+     * Sets the observe relation this exchange has established.
+     *
+     * @param relation the CoAP observe relation
+     */
+    public void setRelation(ObserveRelation relation) {
+        this.relation = relation;
+    }
+
+    /**
+     * Remove past notifications from message exchange store.
+     *
+     * To be able to react on RST for notifications, the NON notifications are
+     * also kept in the message exchange store. This method removes the
+     * notification message from the store.
+     *
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    public void removeNotifications() {
+        assertOwner();
+        ObserveRelation relation = this.relation;
+        RemoveHandler handler = this.removeHandler;
+        if (relation != null) {
+            boolean removed = false;
+            for (Iterator<Response> iterator = relation.getNotificationIterator(); iterator.hasNext();) {
+                Response previous = iterator.next();
+                LOGGER.debug("{} removing NON notification: {}", this, previous);
+                // notifications are local MID namespace
+                if (previous.hasMID()) {
+                    if (handler != null) {
+                        KeyMID key = KeyMID.fromOutboundMessage(previous);
+                        handler.remove(this, null, key);
+                    }
+                } else {
+                    previous.cancel();
+                }
+                iterator.remove();
+                removed = true;
+            }
+            if (removed) {
+                LOGGER.debug("{} removing all remaining NON-notifications of observe relation with {}", this,
+                        relation.getSource());
+            }
+        }
+    }
+
+    /**
+     * Sets additional information about the context this exchange's request has
+     * been sent in.
+     * <p>
+     * The information is usually obtained from the <code>Connector</code> this
+     * exchange is using to send and receive data. The information contained in
+     * the context can be used in addition to the message ID and token of this
+     * exchange to increase security when matching an incoming response to this
+     * exchange's request.
+     * </p>
+     *
+     * @param ctx the endpoint context information
+     */
+    public void setEndpointContext(final EndpointContext ctx) {
+        if (endpointContext.compareAndSet(null, ctx)) {
+            getCurrentRequest().onContextEstablished(ctx);
+        } else {
+            endpointContext.set(ctx);
+        }
+    }
+
+    /**
+     * Gets transport layer specific information that can be used to correlate a
+     * response with this exchange's original request.
+     *
+     * @return the endpoint context information or <code>null</code> if no
+     *         information is available.
+     */
+    public EndpointContext getEndpointContext() {
+        return endpointContext.get();
+    }
+
+    /**
+     * Execute a job serialized related to this exchange.
+     *
+     * If exchange is already owned by the current thread, execute it
+     * synchronous. Otherwise schedule the execution.
+     *
+     * @param command job
+     */
+    public void execute(final Runnable command) {
+        try {
+            if (executor == null || checkOwner()) {
+                command.run();
+            } else {
+                executor.execute(command);
+            }
+        } catch (RejectedExecutionException e) {
+            LOGGER.debug("{} execute:", this, e);
+        } catch (Throwable t) {
+            LOGGER.error("{} execute:", this, t);
+        }
+    }
+
+    /**
+     * Assert, that the exchange is not complete and new messages could be send
+     * using this exchange.
+     *
+     * @param message message to be send using this exchange.
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     * @throws ExchangeCompleteException, if exchange is already completed
+     */
+    public void assertIncomplete(Object message) {
+        assertOwner();
+        if (complete.get()) {
+            throw new ExchangeCompleteException(this + " is already complete! " + message, caller);
+        }
+    }
+
+    /**
+     * Assert, that the current thread owns this exchange.
+     *
+     * @throws ConcurrentModificationException, if not executed within
+     *             {@link #execute(Runnable)}.
+     */
+    private void assertOwner() {
+        if (executor != null) {
+            executor.assertOwner();
+        }
+    }
+
+    /**
+     * Check, if current thread owns this exchange.
+     *
+     * @return {@code true}, if current thread owns this exchange,
+     *         {@code false}, otherwise.
+     */
+    public boolean checkOwner() {
+        if (executor != null) {
+            return executor.checkOwner();
+        } else {
+            return true;
+        }
+    }
+
+    /**
+     * A CoAP message ID scoped to a remote endpoint.
+     * <p>
+     * This class is used by the matcher to correlate messages by MID and
+     * endpoint address.
+     */
+    public static final class KeyMID {
+
+        private static final int MAX_PORT_NO = (1 << 16) - 1;
+        private final int MID;
+        private final byte[] address;
+        private final int port;
+        private final int hash;
+
+        /**
+         * Creates a key based on a message ID and a remote endpoint address.
+         *
+         * @param mid the message ID.
+         * @param address the IP address of the remote endpoint.
+         * @param port the port of the remote endpoint.
+         * @throws NullPointerException if address or origin is {@code null}
+         * @throws IllegalArgumentException if mid or port &lt; 0 or &gt; 65535.
+         *
+         */
+        private KeyMID(final int mid, final byte[] address, final int port) {
+            if (mid < 0 || mid > Message.MAX_MID) {
+                throw new IllegalArgumentException("MID must be a 16 bit unsigned int: " + mid);
+            } else if (address == null) {
+                throw new NullPointerException("address must not be null");
+            } else if (port < 0 || port > MAX_PORT_NO) {
+                throw new IllegalArgumentException("Port must be a 16 bit unsigned int");
+            } else {
+                this.MID = mid;
+                this.address = address;
+                this.port = port;
+                this.hash = createHashCode();
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        private int createHashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + MID;
+            result = prime * result + Arrays.hashCode(address);
+            result = prime * result + port;
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            KeyMID other = (KeyMID) obj;
+            if (MID != other.MID)
+                return false;
+            if (!Arrays.equals(address, other.address))
+                return false;
+            if (port != other.port)
+                return false;
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return new StringBuilder("KeyMID[").append(MID).append(", ").append(Utils.toHexString(address)).append(":")
+                    .append(port).append("]").toString();
+        }
+
+        /**
+         * Creates a key from an inbound CoAP message.
+         *
+         * @param message the message.
+         * @return the key derived from the message. The key's <em>mid</em> is
+         *         scoped to the message's source address and port.
+         */
+        public static KeyMID fromInboundMessage(Message message) {
+            InetSocketAddress address = message.getSourceContext().getPeerAddress();
+            return new KeyMID(message.getMID(), address.getAddress().getAddress(), address.getPort());
+        }
+
+        /**
+         * Creates a key from an outbound CoAP message.
+         *
+         * @param message the message.
+         * @return the key derived from the message. The key's <em>mid</em> is
+         *         scoped to the message's destination address and port.
+         */
+        public static KeyMID fromOutboundMessage(Message message) {
+            InetSocketAddress address = message.getDestinationContext().getPeerAddress();
+            return new KeyMID(message.getMID(), address.getAddress().getAddress(), address.getPort());
+        }
+    }
+
+    /**
+     * Sets cryptoContextId
+     *
+     * @param cryptoContextId a byte array used for mapping cryptographic
+     *            contexts
+     */
+    public void setCryptographicContextID(byte[] cryptoContextId) {
+        this.cryptoContextId = cryptoContextId;
+    }
+
+    /**
+     * Gets cryptoContextId
+     *
+     * @return
+     */
+    public byte[] getCryptographicContextID() {
+        return this.cryptoContextId;
+    }
 }
