@@ -1,5 +1,26 @@
 package com.coap.core;
 
+import com.coap.core.coap.*;
+import com.coap.core.network.Endpoint;
+import com.coap.core.coap.CoAP.*;
+import com.coap.core.network.EndpointManager;
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.core.observe.NotificationListener;
+import com.coap.elements.EndpointContext;
+import com.coap.elements.exception.ConnectorException;
+import com.coap.elements.util.ExecutorsUtil;
+import com.coap.elements.util.NamedThreadFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * The Class CoapClient.
  */

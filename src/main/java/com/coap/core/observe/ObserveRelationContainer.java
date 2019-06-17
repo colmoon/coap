@@ -1,5 +1,8 @@
 package com.coap.core.observe;
 
+import java.util.Iterator;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
  * This is a container for {@link ObserveRelation}s that resources use to hold
  * their observe relations. When a resource changes it will notify all relations

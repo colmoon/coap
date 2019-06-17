@@ -1,5 +1,12 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.coap.MessageObserverAdapter;
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+import com.coap.core.network.Exchange;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Cleanup exchange when user cancelled outgoing requests or messages which
  * failed to be send.

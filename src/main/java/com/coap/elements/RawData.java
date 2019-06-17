@@ -1,5 +1,10 @@
 package com.coap.elements;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.security.Principal;
+import java.util.Arrays;
+
 /**
  * A container object for the data received or sent via a {@link Connector}.
  * 

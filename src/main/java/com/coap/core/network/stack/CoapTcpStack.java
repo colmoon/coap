@@ -1,5 +1,8 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.network.Outbox;
+import com.coap.core.network.config.NetworkConfig;
+
 /**
  * The CoapTcpStack builds up the stack of CoAP layers that process the CoAP
  * protocol when running over TCP connection.

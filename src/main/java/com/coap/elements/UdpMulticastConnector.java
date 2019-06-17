@@ -1,5 +1,10 @@
 package com.coap.elements;
 
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
+
 /**
  * {@link Connector} which inherits functionality of {@link UDPConnector}
  * replacing DatagramSocket with a MulticastSocket to receive multicast requests

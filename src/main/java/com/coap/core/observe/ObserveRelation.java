@@ -58,7 +58,7 @@ public class ObserveRelation {
     private int interestCheckCounter = 1;
 
     /** The notifications that have been sent, so they can be removed from the Matcher */
-    private ConcurrentLinkedQueue<Response> notifications = new ConcurrentLinkedQueue<>();
+    private ConcurrentLinkedQueue<Response> notifications = new ConcurrentLinkedQueue<Response>();
 
     /**
      * Constructs a new observe relation.
@@ -67,16 +67,13 @@ public class ObserveRelation {
      * @param resource the observed resource
      * @param exchange the exchange that tries to establish the observe relation
      */
-    public ObserveRelation(ObservingEndpoint endpoint, Resource resource, Exchange exchange){
-        if (endpoint == null){
+    public ObserveRelation(ObservingEndpoint endpoint, Resource resource, Exchange exchange) {
+        if (endpoint == null)
             throw new NullPointerException();
-        }
-        if (resource == null){
+        if (resource == null)
             throw new NullPointerException();
-        }
-        if (exchange == null){
+        if (exchange == null)
             throw new NullPointerException();
-        }
         this.endpoint = endpoint;
         this.resource = resource;
         this.exchange = exchange;
@@ -91,7 +88,9 @@ public class ObserveRelation {
      * Returns true if this relation has been established.
      * @return true if this relation has been established
      */
-    public boolean isEstablished() {return established;}
+    public boolean isEstablished() {
+        return established;
+    }
 
     /**
      * Sets the established field.
@@ -197,6 +196,14 @@ public class ObserveRelation {
         return recentControlNotification;
     }
 
+    public void setCurrentControlNotification(Response recentControlNotification) {
+        this.recentControlNotification = recentControlNotification;
+    }
+
+    public Response getNextControlNotification() {
+        return nextControlNotification;
+    }
+
     public void setNextControlNotification(Response nextControlNotification) {
         if (this.nextControlNotification != null && nextControlNotification != null) {
             // complete deprecated response
@@ -217,5 +224,4 @@ public class ObserveRelation {
     public String getKey() {
         return this.key;
     }
-
 }

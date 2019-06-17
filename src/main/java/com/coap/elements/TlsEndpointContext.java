@@ -1,5 +1,10 @@
 package com.coap.elements;
 
+import com.coap.elements.util.StringUtil;
+
+import java.net.InetSocketAddress;
+import java.security.Principal;
+
 /**
  * A endpoint context that explicitly supports TLS specific properties.
  * Currently the context is not aware of renegotiation (API to acquire
@@ -27,7 +32,7 @@ public class TlsEndpointContext extends TcpEndpointContext {
 	 * @throws NullPointerException if any of the params is <code>null</code>.
 	 */
 	public TlsEndpointContext(InetSocketAddress peerAddress, Principal peerIdentity, String connectionId,
-			String sessionId, String cipher) {
+							  String sessionId, String cipher) {
 		super(peerAddress, peerIdentity, KEY_CONNECTION_ID, connectionId, KEY_SESSION_ID, sessionId, KEY_CIPHER,
 				cipher);
 	}

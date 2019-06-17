@@ -40,7 +40,7 @@ public class DeduplicatorFactory {
 
 	/**
 	 * Creates a new deduplicator based on the value of the
-	 * {@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#DEDUPLICATOR} configuration property.
+	 * {@link com.coap.core.network.config.NetworkConfig.Keys#DEDUPLICATOR} configuration property.
 	 * 
 	 * @param config The configuration properties.
 	 * @return The deduplicator to use.

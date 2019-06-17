@@ -1,5 +1,10 @@
 package com.coap.core.network;
 
+import com.coap.core.coap.EmptyMessage;
+import com.coap.core.coap.Message;
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+
 /**
  * Endpoint message receiver. Passes exchange and message to endpoints
  * protocol-stack.

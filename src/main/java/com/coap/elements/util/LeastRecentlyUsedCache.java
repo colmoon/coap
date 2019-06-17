@@ -1,5 +1,8 @@
 package com.coap.elements.util;
 
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+
 /**
  * An in-memory cache with a maximum capacity and support for evicting stale
  * entries based on an LRU policy.

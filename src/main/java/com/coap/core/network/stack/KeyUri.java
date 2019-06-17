@@ -1,5 +1,12 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.Utils;
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+
+import java.net.InetSocketAddress;
+import java.util.Arrays;
+
 /**
  * A key based on a CoAP message's target URI that is scoped to an endpoint address.
  * <p>

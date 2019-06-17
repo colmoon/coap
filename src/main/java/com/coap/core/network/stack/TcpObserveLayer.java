@@ -1,5 +1,13 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+import com.coap.core.network.Exchange;
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.core.observe.ObserveRelation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * TCP related observe/notify handling.
  * No CON/NON logic possible nor required.

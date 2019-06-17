@@ -1,5 +1,16 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.coap.BlockOption;
+import com.coap.core.coap.Message;
+import com.coap.core.coap.OptionSet;
+import com.coap.core.network.Exchange;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
+import java.util.concurrent.ScheduledFuture;
+
 /**
  * A tracker for the status of a blockwise transfer of a request or response body.
  * <p>

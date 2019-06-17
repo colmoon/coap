@@ -2,7 +2,7 @@ package com.coap.core.coap;
 
 /**
  * @ClassName MediaTypeRegistry
- * @Description TODO
+ * @Description MediaTypeRegistry
  * @Author wuxiaojian
  * @Date 2019/6/17 14:03
  * @Version 1.0

@@ -1,5 +1,8 @@
 package com.coap.elements.util;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+
 /**
  * This class describes the functionality to write raw network-ordered datagrams
  * on bit-level.

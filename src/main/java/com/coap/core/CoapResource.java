@@ -1,5 +1,27 @@
 package com.coap.core;
 
+import com.coap.core.coap.CoAP;
+import com.coap.core.coap.CoAP.*;
+import com.coap.core.coap.Response;
+import com.coap.core.network.Endpoint;
+import com.coap.core.network.Exchange;
+import com.coap.core.observe.ObserveNotificationOrderer;
+import com.coap.core.observe.ObserveRelation;
+import com.coap.core.observe.ObserveRelationContainer;
+import com.coap.core.observe.ObserveRelationFilter;
+import com.coap.core.server.resources.CoapExchange;
+import com.coap.core.server.resources.Resource;
+import com.coap.core.server.resources.ResourceAttributes;
+import com.coap.core.server.resources.ResourceObserver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.URI;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.*;
+
 /**
  * CoapResource is a basic implementation of a resource. Extend this class to
  * write your own resources. Instances of type or subtype of CoapResource can be

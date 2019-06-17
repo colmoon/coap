@@ -1,5 +1,8 @@
 package com.coap.elements;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+
 /**
  * A managed interface for exchanging messages between networked clients and a
  * server application.

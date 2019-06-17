@@ -2,13 +2,15 @@ package com.coap.core.network;
 
 /**
  * @ClassName EndpointManager
- * @Description TODO
+ * @Description EndpointManager
  * @Author wuxiaojian
  * @Date 2019/6/17 14:12
  * @Version 1.0
  **/
 
 import com.coap.core.coap.CoAP;
+import com.coap.core.coap.Response;
+import com.coap.core.server.MessageDeliverer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

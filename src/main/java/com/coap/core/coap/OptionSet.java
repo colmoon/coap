@@ -2,7 +2,7 @@ package com.coap.core.coap;
 
 /**
  * @ClassName OptionSet
- * @Description TODO
+ * @Description OptionSet
  * @Author wuxiaojian
  * @Date 2019/6/17 13:43
  * @Version 1.0

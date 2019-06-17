@@ -1,5 +1,10 @@
 package com.coap.elements;
 
+import com.coap.elements.util.StringUtil;
+
+import java.net.InetSocketAddress;
+import java.security.Principal;
+
 /**
  * An endpoint context that explicitly supports DTLS specific properties.
  */
@@ -46,7 +51,7 @@ public class DtlsEndpointContext extends MapBasedEndpointContext {
 	 *             peerIdentity are {@code null}.
 	 */
 	public DtlsEndpointContext(InetSocketAddress peerAddress, Principal peerIdentity,
-			String sessionId, String epoch, String cipher, String timestamp) {
+							   String sessionId, String epoch, String cipher, String timestamp) {
 
 		this(peerAddress, null, peerIdentity, sessionId, epoch, cipher, timestamp);
 	}

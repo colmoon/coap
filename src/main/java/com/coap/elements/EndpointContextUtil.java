@@ -1,5 +1,10 @@
 package com.coap.elements;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Set;
+
 /**
  * EndpointContext utility.
  */

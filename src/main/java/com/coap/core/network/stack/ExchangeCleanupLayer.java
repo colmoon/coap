@@ -1,5 +1,12 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+import com.coap.core.network.Exchange;
+import com.coap.core.network.config.NetworkConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * A layer that reacts to user cancelled outgoing requests or messages which
  * failed to be send, and completes exchange, which causes state clean up.

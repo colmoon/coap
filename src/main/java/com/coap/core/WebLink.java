@@ -1,5 +1,11 @@
 package com.coap.core;
 
+import com.coap.core.coap.LinkFormat;
+import com.coap.core.server.resources.ResourceAttributes;
+import com.coap.elements.util.StringUtil;
+
+import java.util.List;
+
 /**
  * The WebLink class can be used to programmatically browse a remote CoAP endoint.
  * It uses the {@link ResourceAttributes} class to hold the CoRE Link Format attributes.

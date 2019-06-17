@@ -1,5 +1,8 @@
 package com.coap.core.network;
 
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.core.network.stack.CoapStack;
+
 /**
  * Factory for CoapStack.
  * 

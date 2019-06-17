@@ -1,8 +1,11 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.coap.BlockOption;
+import com.coap.core.coap.EmptyMessage;
 import com.coap.core.coap.Request;
 import com.coap.core.coap.Response;
 import com.coap.core.network.Exchange;
+import com.coap.core.network.ExchangeCompleteException;
 import com.coap.core.network.Outbox;
 import com.coap.core.server.MessageDeliverer;
 import com.coap.core.network.stack.Layer.TopDownBuilder;
@@ -10,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * The BaseCoapStack passes the messages through the layers configured in the

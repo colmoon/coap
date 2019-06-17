@@ -1,5 +1,11 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.coap.BlockOption;
+import com.coap.core.coap.OptionSet;
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+import com.coap.core.network.Exchange;
+
 /**
  * A tracker for the blockwise transfer of a request body.
  *

@@ -1,5 +1,12 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.coap.EmptyMessage;
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+import com.coap.core.network.Exchange;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * TCP adaption layer. Set acknowledged on response receiving.
  */

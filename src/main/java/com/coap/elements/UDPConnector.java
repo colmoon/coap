@@ -1,5 +1,22 @@
 package com.coap.elements;
 
+import com.coap.elements.exception.EndpointMismatchException;
+import com.coap.elements.util.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 /**
  * A {@link Connector} employing UDP as the transport protocol for exchanging
  * data between networked clients and a server application. It implements the

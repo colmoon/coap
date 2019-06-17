@@ -2,7 +2,7 @@ package com.coap.elements.util;
 
 /**
  * @ClassName Bytes
- * @Description TODO
+ * @Description Bytes
  * @Author wuxiaojian
  * @Date 2019/6/14 21:59
  * @Version 1.0

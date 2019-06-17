@@ -1,5 +1,32 @@
 package com.coap.core.network;
 
+import com.coap.core.coap.*;
+import com.coap.core.coap.CoAP.Type;
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.core.network.interceptors.MessageInterceptor;
+import com.coap.core.network.serialization.*;
+import com.coap.core.network.stack.CoapStack;
+import com.coap.core.network.stack.CoapTcpStack;
+import com.coap.core.network.stack.CoapUdpStack;
+import com.coap.core.observe.InMemoryObservationStore;
+import com.coap.core.observe.NotificationListener;
+import com.coap.core.observe.ObservationStore;
+import com.coap.core.server.MessageDeliverer;
+import com.coap.core.network.Exchange.*;
+import com.coap.elements.*;
+import com.coap.elements.util.DaemonThreadFactory;
+import com.coap.elements.util.ExecutorsUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.*;
+
 /**
  * Endpoint encapsulates the stack that executes the CoAP protocol. Endpoint
  * forwards incoming messages to a {@link MessageDeliverer}. The deliverer will
@@ -161,8 +188,8 @@ public class CoapEndpoint implements Endpoint {
 	 *             but the connector is not a {@link UDPConnector}
 	 */
 	protected CoapEndpoint(Connector connector, boolean applyConfiguration, NetworkConfig config,
-			TokenGenerator tokenGenerator, ObservationStore store, MessageExchangeStore exchangeStore,
-			EndpointContextMatcher endpointContextMatcher, CoapStackFactory coapStackFactory) {
+						   TokenGenerator tokenGenerator, ObservationStore store, MessageExchangeStore exchangeStore,
+						   EndpointContextMatcher endpointContextMatcher, CoapStackFactory coapStackFactory) {
 		this.config = config;
 		this.connector = connector;
 		this.connector.setRawDataReceiver(new InboxImpl());
@@ -238,7 +265,7 @@ public class CoapEndpoint implements Endpoint {
 		}
 
 		if (!this.coapstack.hasDeliverer()) {
-			setMessageDeliverer(new ClientMessageDeliverer());
+			setMessageDeliverer(new EndpointManager.ClientMessageDeliverer());
 		}
 
 		if (this.executor == null) {

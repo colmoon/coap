@@ -1,5 +1,7 @@
 package com.coap.elements;
 
+import java.net.InetSocketAddress;
+
 /**
  * A endpoint context for plain UDP.
  */

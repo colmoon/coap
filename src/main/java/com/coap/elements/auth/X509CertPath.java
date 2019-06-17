@@ -1,5 +1,16 @@
 package com.coap.elements.auth;
 
+import com.coap.elements.util.Bytes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.security.auth.x500.X500Principal;
+import java.io.ByteArrayInputStream;
+import java.security.Principal;
+import java.security.cert.*;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * A path of X.509 certificates asserting the identity of a peer.
  * <p>

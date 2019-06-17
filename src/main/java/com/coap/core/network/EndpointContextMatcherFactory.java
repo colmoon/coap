@@ -1,5 +1,9 @@
 package com.coap.core.network;
 
+import com.coap.core.coap.CoAP;
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.elements.*;
+
 /**
  * Factory for endpoint context matcher.
  */

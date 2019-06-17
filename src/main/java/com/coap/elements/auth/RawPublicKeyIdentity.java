@@ -1,5 +1,13 @@
 package com.coap.elements.auth;
 
+import com.coap.elements.util.Asn1DerDecoder;
+import com.coap.elements.util.Base64;
+
+import java.io.IOException;
+import java.security.*;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Arrays;
+
 /**
  * A principal representing an authenticated peer's <em>RawPublicKey</em>.
  */

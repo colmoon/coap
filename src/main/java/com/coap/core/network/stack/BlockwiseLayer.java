@@ -1,12 +1,13 @@
 package com.coap.core.network.stack;
 
-import com.coap.core.coap.BlockOption;
-import com.coap.core.coap.MessageObserverAdapter;
-import com.coap.core.coap.Request;
-import com.coap.core.coap.Response;
+import com.coap.core.coap.*;
+import com.coap.core.coap.CoAP.ResponseCode;
+import com.coap.core.coap.CoAP.Type;
 import com.coap.core.network.Exchange;
 import com.coap.core.network.config.NetworkConfig;
 import com.coap.core.network.config.NetworkConfigDefaults;
+import com.coap.elements.util.ExecutorsUtil;
+import com.coap.elements.util.LeastRecentlyUsedCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,17 +103,17 @@ public class BlockwiseLayer extends AbstractLayer {
 	 * <p>
 	 * The following configuration properties are used:
 	 * <ul>
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#MAX_MESSAGE_SIZE} -
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#MAX_MESSAGE_SIZE} -
 	 * This value is used as the threshold for determining
 	 * whether an inbound or outbound message's body needs to be transferred blockwise.
 	 * If not set, a default value of 4096 bytes is used.</li>
 	 * 
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#PREFERRED_BLOCK_SIZE} -
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#PREFERRED_BLOCK_SIZE} -
 	 * This value is used as the value proposed to a peer when doing a transparent blockwise transfer.
 	 * The value indicates the number of bytes, not the szx code.
 	 * If not set, a default value of 1024 bytes is used.</li>
 	 * 
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#MAX_RESOURCE_BODY_SIZE} -
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#MAX_RESOURCE_BODY_SIZE} -
 	 * This value (in bytes) is used as the upper limit for the size of the buffer used for assembling
 	 * blocks of a transparent blockwise transfer. Resource bodies larger than this value can only be
 	 * transferred in a manually managed blockwise transfer. Setting this value to 0 disables transparent
@@ -120,14 +121,14 @@ public class BlockwiseLayer extends AbstractLayer {
 	 * the next layer.
 	 * If not set, a default value of 8192 bytes is used.</li>
 	 * 
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#BLOCKWISE_STATUS_LIFETIME} -
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#BLOCKWISE_STATUS_LIFETIME} -
 	 * The maximum amount of time (in milliseconds) allowed between transfers of individual blocks before
 	 * the blockwise transfer state is discarded.
 	 * If not set, a default value of 30 seconds is used.</li>
 	 * 
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#BLOCKWISE_STRICT_BLOCK2_OPTION} -
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#BLOCKWISE_STRICT_BLOCK2_OPTION} -
 	 * This value is used to indicate if the response should always include the Block2 option when client request early blockwise negociation but the response can be sent on one packet.
-	 * If not set, the default value is {@link org.eclipse.californium.core.network.config.NetworkConfigDefaults#DEFAULT_BLOCKWISE_STRICT_BLOCK2_OPTION}</li>
+	 * If not set, the default value is {@link com.coap.core.network.config.NetworkConfigDefaults#DEFAULT_BLOCKWISE_STRICT_BLOCK2_OPTION}</li>
 	 * </ul>
 
 	 * @param config The configuration values to use.

@@ -1,5 +1,25 @@
 package com.coap.elements.util;
 
+import javax.net.ssl.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.Security;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Utility functions for {@link javax.net.ssl.SSLContext}.
  * 
@@ -205,7 +225,7 @@ public class SslContextUtil {
 	 *             keyPassword is {@code null}.
 	 */
 	public static KeyManager[] loadKeyManager(String keyStoreUri, String alias, char[] storePassword,
-			char[] keyPassword) throws IOException, GeneralSecurityException {
+											  char[] keyPassword) throws IOException, GeneralSecurityException {
 		if (null == keyPassword) {
 			throw new NullPointerException("keyPassword must be provided!");
 		}
@@ -284,10 +304,10 @@ public class SslContextUtil {
 			throw new NullPointerException("keyPassword must be provided!");
 		}
 		KeyStore ks = loadKeyStore(keyStoreUri, storePassword);
-		if (ks.entryInstanceOf(alias, PrivateKeyEntry.class)) {
-			Entry entry = ks.getEntry(alias, new KeyStore.PasswordProtection(keyPassword));
-			if (entry instanceof PrivateKeyEntry) {
-				PrivateKeyEntry pkEntry = (PrivateKeyEntry) entry;
+		if (ks.entryInstanceOf(alias, KeyStore.PrivateKeyEntry.class)) {
+			KeyStore.Entry entry = ks.getEntry(alias, new KeyStore.PasswordProtection(keyPassword));
+			if (entry instanceof KeyStore.PrivateKeyEntry) {
+				KeyStore.PrivateKeyEntry pkEntry = (KeyStore.PrivateKeyEntry) entry;
 				Certificate[] chain = pkEntry.getCertificateChain();
 				X509Certificate[] x509Chain = asX509Certificates(chain);
 				return new Credentials(pkEntry.getPrivateKey(), x509Chain);
@@ -481,7 +501,7 @@ public class SslContextUtil {
 			throw new GeneralSecurityException(
 					"key stores '" + keyStoreUri + "' doesn't contain certificates for '" + alias + "'");
 		} else {
-			Entry entry = ks.getEntry(alias, new KeyStore.PasswordProtection(keyPassword));
+			KeyStore.Entry entry = ks.getEntry(alias, new KeyStore.PasswordProtection(keyPassword));
 			if (null != entry) {
 				KeyStore ksAlias = KeyStore.getInstance(ks.getType());
 				ksAlias.load(null);
@@ -801,7 +821,7 @@ public class SslContextUtil {
 		 * Create credentials.
 		 * 
 		 * @param privateKey private key
-		 * @param trustedChain certificate trustedChain
+		 *
 		 */
 		private Credentials(PrivateKey privateKey, X509Certificate[] chain) {
 			this.privateKey = privateKey;

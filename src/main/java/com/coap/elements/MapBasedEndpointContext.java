@@ -1,5 +1,11 @@
 package com.coap.elements;
 
+import java.net.InetSocketAddress;
+import java.security.Principal;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * A map based endpoint context.
  */

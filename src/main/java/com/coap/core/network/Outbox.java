@@ -1,5 +1,9 @@
 package com.coap.core.network;
 
+import com.coap.core.coap.EmptyMessage;
+import com.coap.core.coap.Request;
+import com.coap.core.coap.Response;
+
 public interface Outbox {
 
 	/**

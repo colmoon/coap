@@ -2,7 +2,7 @@ package com.coap.core.coap;
 
 /**
  * @ClassName MessageObserver
- * @Description TODO
+ * @Description MessageObserver
  * @Author wuxiaojian
  * @Date 2019/6/17 13:38
  * @Version 1.0

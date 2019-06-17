@@ -1,5 +1,18 @@
 package com.coap.core.network;
 
+import com.coap.core.coap.*;
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.core.observe.NotificationListener;
+import com.coap.core.observe.ObservationStore;
+import com.coap.core.observe.ObserveRelation;
+import com.coap.elements.EndpointContext;
+import com.coap.elements.EndpointContextMatcher;
+import com.coap.core.network.Exchange.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.Executor;
+
 /**
  * Matcher that runs over reliable TCP/TLS protocol. Based on
  * <a href="https://tools.ietf.org/html/draft-ietf-core-coap-tcp-tls-02"/>
@@ -28,8 +41,8 @@ public final class TcpMatcher extends BaseMatcher {
 	 * @throws NullPointerException if one of the parameters is {@code null}.
 	 */
 	public TcpMatcher(NetworkConfig config, NotificationListener notificationListener, TokenGenerator tokenGenerator,
-			ObservationStore observationStore, MessageExchangeStore exchangeStore, Executor executor,
-			EndpointContextMatcher endpointContextMatcher) {
+					  ObservationStore observationStore, MessageExchangeStore exchangeStore, Executor executor,
+					  EndpointContextMatcher endpointContextMatcher) {
 		super(config, notificationListener, tokenGenerator, observationStore, exchangeStore, executor);
 		this.endpointContextMatcher = endpointContextMatcher;
 	}

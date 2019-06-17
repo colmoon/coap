@@ -1,5 +1,7 @@
 package com.coap.elements.util;
 
+import java.util.Arrays;
+
 /**
  * ASN.1 DER decoder for SEQUENCEs and OIDs.
  */

@@ -1,5 +1,7 @@
 package com.coap.elements;
 
+import java.security.Principal;
+
 /**
  * Principal based endpoint context matcher.
  * 

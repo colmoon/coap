@@ -2,7 +2,7 @@ package com.coap.core.coap;
 
 /**
  * @ClassName CoAPMessageFormatException
- * @Description TODO
+ * @Description CoAPMessageFormatException
  * @Author wuxiaojian
  * @Date 2019/6/17 14:22
  * @Version 1.0

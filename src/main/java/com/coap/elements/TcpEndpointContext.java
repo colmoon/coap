@@ -1,5 +1,10 @@
 package com.coap.elements;
 
+import com.coap.elements.util.StringUtil;
+
+import java.net.InetSocketAddress;
+import java.security.Principal;
+
 /**
  * A endpoint context that explicitly supports TCP specific properties.
  */

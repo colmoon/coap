@@ -1,5 +1,7 @@
 package com.coap.elements;
 
+import java.net.InetSocketAddress;
+
 /**
  * A factory for {@link Connector} objects.
  * 

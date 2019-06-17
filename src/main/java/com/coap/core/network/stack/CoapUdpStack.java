@@ -1,5 +1,10 @@
 package com.coap.core.network.stack;
 
+import com.coap.core.network.Outbox;
+import com.coap.core.network.config.NetworkConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * The CoAPStack builds up the stack of CoAP layers that process the CoAP
  * protocol.

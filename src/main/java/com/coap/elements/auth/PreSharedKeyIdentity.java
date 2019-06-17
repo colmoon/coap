@@ -1,5 +1,9 @@
 package com.coap.elements.auth;
 
+import com.coap.elements.util.StringUtil;
+
+import java.security.Principal;
+
 /**
  * A principal representing an authenticated peer's identity as used in a
  * <em>pre-shared key</em> handshake.

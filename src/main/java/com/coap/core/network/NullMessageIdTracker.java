@@ -1,5 +1,7 @@
 package com.coap.core.network;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * A helper for keeping track of message IDs.
  * <p>

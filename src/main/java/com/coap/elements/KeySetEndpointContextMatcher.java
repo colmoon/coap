@@ -1,5 +1,10 @@
 package com.coap.elements;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+
 /**
  * Key set based endpoint context matcher.
  */

@@ -1,5 +1,16 @@
 package com.coap.core.server.resources;
 
+import com.coap.core.CoapResource;
+import com.coap.core.coap.MediaTypeRegistry;
+import com.coap.core.coap.OptionSet;
+import com.coap.core.coap.CoAP.*;
+import com.coap.core.coap.Response;
+import com.coap.core.network.Exchange;
+
+import java.net.InetAddress;
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * The Class CoapExchange represents an exchange of a CoAP request and response
  * and provides a user-friendly API to subclasses of {@link CoapResource} for

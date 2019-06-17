@@ -4,7 +4,7 @@ import com.coap.elements.util.Bytes;
 
 /**
  * @ClassName Token
- * @Description TODO
+ * @Description Token
  * @Author wuxiaojian
  * @Date 2019/6/14 21:58
  * @Version 1.0

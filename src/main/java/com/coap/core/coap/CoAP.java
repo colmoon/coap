@@ -2,7 +2,7 @@ package com.coap.core.coap;
 
 /**
  * @ClassName CoAP
- * @Description TODO
+ * @Description CoAP
  * @Author wuxiaojian
  * @Date 2019/6/15 15:54
  * @Version 1.0

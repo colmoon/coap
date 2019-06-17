@@ -1,5 +1,10 @@
 package com.coap.core;
 
+import com.coap.core.coap.CoAP;
+import com.coap.core.coap.OptionSet;
+import com.coap.core.coap.Response;
+import com.coap.core.coap.CoAP.*;
+
 /**
  * CoapResponse provides a simple API for CoAP responses. Use a
  * {@link CoapClient} to send requests to a CoAP server and receive such a

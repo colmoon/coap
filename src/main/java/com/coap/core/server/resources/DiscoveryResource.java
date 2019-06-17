@@ -1,5 +1,13 @@
 package com.coap.core.server.resources;
 
+import com.coap.core.CoapResource;
+import com.coap.core.coap.CoAP;
+import com.coap.core.coap.CoAP.*;
+import com.coap.core.coap.LinkFormat;
+import com.coap.core.coap.MediaTypeRegistry;
+
+import java.util.List;
+
 /**
  * The DiscoveryResource implements CoAP's discovery service. It is typically
  * accessible over CoAP on the well-known URI: <tt>/.well-known/core</tt>. It
@@ -43,7 +51,7 @@ public class DiscoveryResource extends CoapResource {
 		List<String> query = exchange.getRequestOptions().getUriQuery();
 		if (query.size() <= 1) {
 			String tree = discoverTree(root, query);
-			exchange.respond(ResponseCode.CONTENT, tree, MediaTypeRegistry.APPLICATION_LINK_FORMAT);
+			exchange.respond(CoAP.ResponseCode.CONTENT, tree, MediaTypeRegistry.APPLICATION_LINK_FORMAT);
 		}
 		else {
 			exchange.respond(ResponseCode.BAD_OPTION, "only one search query is supported!", MediaTypeRegistry.TEXT_PLAIN);

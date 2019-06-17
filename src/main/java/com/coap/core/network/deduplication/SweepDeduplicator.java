@@ -2,7 +2,7 @@ package com.coap.core.network.deduplication;
 
 /**
  * @ClassName SweepDeduplicator
- * @Description TODO
+ * @Description SweepDeduplicator
  * @Author wuxiaojian
  * @Date 2019/6/13 22:06
  * @Version 1.0

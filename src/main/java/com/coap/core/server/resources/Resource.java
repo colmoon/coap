@@ -70,7 +70,6 @@ import java.util.concurrent.ExecutorService;
  * example.
  * </p>
  */
-
 public interface Resource {
 
     /**
@@ -97,7 +96,7 @@ public interface Resource {
      *
      * @param name the new name
      */
-    public String setName(String name);
+    public void setName(String name);
 
     /**
      * Gets the path to the resource which is equal to the URI of its parent

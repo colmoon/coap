@@ -32,7 +32,7 @@ public class MapBasedMessageIdTracker implements MessageIdTracker {
 	 * 
 	 * The following configuration value is used:
 	 * <ul>
-	 * <li>{@link org.eclipse.californium.core.network.config.NetworkConfig.Keys#EXCHANGE_LIFETIME}
+	 * <li>{@link com.coap.core.network.config.NetworkConfig.Keys#EXCHANGE_LIFETIME}
 	 * - each message ID returned by <em>getNextMessageId</em> is marked as
 	 * <em>in use</em> for this amount of time (ms).</li>
 	 * </ul>

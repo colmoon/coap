@@ -1,11 +1,12 @@
 package com.coap.core.network;
 
-import com.coap.core.coap.Message;
-import com.coap.core.coap.Request;
-import com.coap.core.coap.Token;
+import com.coap.core.coap.*;
+import com.coap.core.network.Exchange.*;
+import com.coap.core.coap.CoAP.*;
 import com.coap.core.network.config.NetworkConfig;
 import com.coap.core.observe.NotificationListener;
 import com.coap.core.observe.ObservationStore;
+import com.coap.elements.EndpointContext;
 import com.coap.elements.EndpointContextMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

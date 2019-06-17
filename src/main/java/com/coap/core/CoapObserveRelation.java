@@ -1,5 +1,23 @@
 package com.coap.core;
 
+import com.coap.core.coap.CoAP;
+import com.coap.core.coap.MessageObserver;
+import com.coap.core.coap.Request;
+import com.coap.core.network.Endpoint;
+import com.coap.core.network.config.NetworkConfig;
+import com.coap.core.observe.NotificationListener;
+import com.coap.core.observe.ObserveNotificationOrderer;
+import com.coap.elements.EndpointContext;
+import com.coap.elements.util.ExecutorsUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
 /**
  * A CoapObserveRelation is a client-side control handle. It represents a CoAP
  * observe relation between a CoAP client and a resource on a server.
