@@ -8,6 +8,8 @@ package com.coap.core.server.resources;
  * @Version 1.0
  **/
 
+import com.coap.core.coap.LinkFormat;
+
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;

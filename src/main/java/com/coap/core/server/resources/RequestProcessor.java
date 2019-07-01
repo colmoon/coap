@@ -1,5 +1,7 @@
 package com.coap.core.server.resources;
 
+import com.coap.core.network.Exchange;
+
 /**
  * A RequestProcessor is able to process requests in the sense of a server that
  * responds to the request with a response message.

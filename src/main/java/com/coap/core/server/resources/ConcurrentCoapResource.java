@@ -1,5 +1,12 @@
 package com.coap.core.server.resources;
 
+import com.coap.core.CoapResource;
+import com.coap.core.network.Exchange;
+import com.coap.elements.util.ExecutorsUtil;
+import com.coap.elements.util.NamedThreadFactory;
+
+import java.util.concurrent.ExecutorService;
+
 /**
  * A ConcurrentCoapResource is an extension to a typical CoapResource and
  * defines its own {@link Executor}. Arriving request to this resource and to
