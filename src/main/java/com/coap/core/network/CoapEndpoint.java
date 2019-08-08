@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 /**
- * Endpoint encapsulates the stack that executes the CoAP protocol. Endpoint
+ * Endpoint encapsulates(封装) the stack that executes the CoAP protocol. Endpoint
  * forwards incoming messages to a {@link MessageDeliverer}. The deliverer will
  * deliver requests to its destination resource. The resource sends the response
  * back over the same endpoint. The endpoint sends outgoing messages over a

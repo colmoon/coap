@@ -27,7 +27,7 @@ import java.util.concurrent.*;
  * write your own resources. Instances of type or subtype of CoapResource can be
  * built up to a tree very easily, see {@link #add(CoapResource)}.
  * <p>
- * CoapResource uses four distinct methods to handle requests:
+ * CoapResource uses four distinct(不同的) methods to handle requests:
  * <tt>handleGET()</tt>, <tt>handlePOST()</tt>, <tt>handlePUT()</tt> and
  * <tt>handleDELETE()</tt>. Each method has a default implementation that
  * responds with a 4.05 (Method Not Allowed). Each method exists twice but with
@@ -95,7 +95,7 @@ import java.util.concurrent.*;
  * added or canceled.
  * // TODO: make example with createClient().get() 
  */
-public  class CoapResource implements Resource {
+public class CoapResource implements Resource {
 
 	/** The logger. */
 	protected final static Logger LOGGER = LoggerFactory.getLogger(CoapResource.class.getCanonicalName());

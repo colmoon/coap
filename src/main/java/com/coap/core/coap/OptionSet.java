@@ -59,7 +59,7 @@ public class OptionSet {
     private Integer      observe;
     private byte[]		 oscore;
 
-    // Arbitrary options
+    // Arbitrary(任意的) options
     private List<Option> others;
 
     // TODO: When receiving, uri_host/port should be those from the sender
